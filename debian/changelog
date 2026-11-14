@@ -1,0 +1,6 @@
+sonora-rip (0.1.0) trixie; urgency=medium
+
+  * Initial release: CD ripping with pre-emphasis detection/de-emphasis,
+    SACD extraction front-end.
+
+ -- Sonora Rip Maintainers <sonora-rip@example.org>  Sat, 14 Nov 2026 12:00:00 +0000

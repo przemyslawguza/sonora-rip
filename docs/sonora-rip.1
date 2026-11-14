@@ -1,0 +1,24 @@
+.TH SONORA-RIP 1 "2026" "sonora-rip 0.1.0" "User Commands"
+.SH NAME
+sonora-rip \- Audio CD / SACD ripper with automatic pre-emphasis correction
+.SH SYNOPSIS
+.B sonora-rip cd
+[\fB\-d\fR DEV] [\fB\-o\fR DIR] [\fB\-t\fR N[-M]] [\fB\-\-deemph\fR auto|on|off] [\fB\-\-format\fR wav|flac] [\fB\-\-flac\-level\fR 0-8] [\fB\-\-dither\fR] [\fB\-\-fast\fR]
+.br
+.B sonora-rip sacd \-i
+ISO|DEV|HOST[:2002] [\fB\-o\fR DIR] [\fB\-\-multichannel\fR] [\fB\-\-pcm\fR [\fB\-\-rate\fR HZ] [\fB\-\-bits\fR 16|24]]
+.SH DESCRIPTION
+In CD mode each track's Red Book pre-emphasis flag is read; flagged tracks are
+passed through a 50/15 microsecond de-emphasis filter before being written as WAV.
+In SACD mode the external sacd_extract tool reads the disc/ISO and produces DSF
+files, optionally converted to PCM with ffmpeg.
+.SH FLAC
+With \fB\-\-format flac\fR, CD tracks are encoded losslessly with libFLAC (verification enabled) and tagged with TRACKNUMBER, ENCODER and the pre-emphasis flag / de-emphasis status.
+.SH CDDB
+In CD mode the disc is looked up on gnudb.gnudb.org (CDDBP port 8880) unless
+\fB\-\-no\-cddb\fR is given. \fB\-\-cddb\-server\fR HOST[:PORT] selects another
+server, \fB\-\-cddb\-http\fR uses HTTP (port 80) and \fB\-\-cddb\-match\fR N picks
+the N-th candidate. Results fill ARTIST, ALBUM, ALBUMARTIST, TITLE, DATE, GENRE,
+TRACKTOTAL and CDDB_DISCID tags (FLAC) and the names: files are written to OUTDIR/"Artist - Album"/NN-Title.ext.
+.SH LICENSE
+GPL-2.0-or-later.

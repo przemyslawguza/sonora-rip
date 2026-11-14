@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+%:
+	dh $@
+override_dh_auto_build:
+	dh_auto_build -- VERSION=$(DEB_VERSION_UPSTREAM)
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	$(MAKE) check CC=$(CC)
+endif
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/sonora-rip PREFIX=/usr
