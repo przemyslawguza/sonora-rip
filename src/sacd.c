@@ -8,6 +8,8 @@
 #define _GNU_SOURCE
 #include "sacd.h"
 #include <dirent.h>
+#include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +17,14 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+static void slog(const sacd_opts_t *o, const char *fmt, ...)
+{
+    char buf[1100];
+    va_list ap;
+    va_start(ap, fmt); vsnprintf(buf, sizeof buf, fmt, ap); va_end(ap);
+    if (o->log) o->log(o->user, buf); else fputs(buf, stderr);
+}
 
 static int run(char *const argv[])
 {
@@ -40,7 +50,7 @@ int sacd_run(const sacd_opts_t *o)
     mkdir(o->outdir, 0755); mkdir(dsd_dir, 0755);
 
     if (!getcwd(cwd, sizeof cwd)) return 1;
-    if (chdir(dsd_dir)) { perror(dsd_dir); return 1; }
+    if (chdir(dsd_dir)) { slog(o, "%s: %s\n", dsd_dir, strerror(errno)); return 1; }
 
     /* sacd_extract: -i input, -2 stereo / -m multichannel, -s one DSF per track,
      * -c convert DST to DSD.  VERIFY against `sacd_extract --help` on your build. */
@@ -49,8 +59,8 @@ int sacd_run(const sacd_opts_t *o)
                      "-s", "-c", NULL };
     int rc = run(argv);
     if (chdir(cwd)) { /* ignore */ }
-    if (rc) { fprintf(stderr, "%s failed (%d)\n", ex, rc); return 1; }
-    if (!o->to_pcm) return 0;
+    if (rc) { slog(o, "%s failed (%d)\n", ex, rc); return 1; }
+    if (!o->to_pcm) { slog(o, "SACD extraction finished.\n"); return 0; }
 
     char rate[16], codec[16];
     snprintf(rate, sizeof rate, "%d", o->pcm_rate ? o->pcm_rate : 88200);
@@ -72,8 +82,9 @@ int sacd_run(const sacd_opts_t *o)
                        "-ar", rate, "-c:a", codec,
                        "-sample_fmt", (char *)(o->pcm_bits == 16 ? "s16" : "s32"), /* FLAC 24-bit = s32 container */
                        "-compression_level", lvl, out, NULL };
-        if (run(fa)) fprintf(stderr, "ffmpeg failed for %s\n", in);
+        if (run(fa)) slog(o, "ffmpeg failed for %s\n", in);
     }
     closedir(d);
+    slog(o, "SACD extraction finished.\n");
     return 0;
 }

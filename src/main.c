@@ -30,7 +30,7 @@ int main(int argc, char **argv)
                        .paranoia = 1, .format = FMT_WAV, .flac_level = -1,
                        .use_cddb = 1 };
     char srvbuf[256];
-    sacd_opts_t  s = { NULL, ".", 0, 0, 88200, 24, 0, -1, NULL, NULL };
+    sacd_opts_t  s = { .input = NULL, .outdir = ".", .pcm_rate = 88200, .pcm_bits = 24, .flac_level = -1 };
     enum { O_DEEMPH = 1000, O_DITHER, O_FAST, O_MC, O_PCM, O_RATE, O_BITS, O_FORMAT, O_LEVEL, O_NOCDDB, O_CDDBSRV, O_CDDBHTTP, O_CDDBMATCH };
     static struct option lo[] = {
         {"deemph", 1, 0, O_DEEMPH}, {"dither", 0, 0, O_DITHER}, {"fast", 0, 0, O_FAST},

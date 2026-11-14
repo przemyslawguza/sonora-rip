@@ -11,6 +11,8 @@ typedef struct {
     int         flac_level;     /* 0..12 (ffmpeg), <0 = default */
     const char *extract_bin;    /* default "sacd_extract" */
     const char *ffmpeg_bin;     /* default "ffmpeg" */
+    void      (*log)(void *user, const char *msg);   /* optional, NULL = stderr */
+    void       *user;
 } sacd_opts_t;
 int sacd_run(const sacd_opts_t *o);
 #endif

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Sonora Rip
+GenericName=CD / SACD Ripper
+Comment=Rip audio CDs with pre-emphasis correction, CDDB tagging and FLAC output
+Exec=sonora-rip-gui
+Icon=media-optical-audio
+Terminal=false
+Categories=AudioVideo;Audio;
+Keywords=cd;rip;flac;sacd;cddb;

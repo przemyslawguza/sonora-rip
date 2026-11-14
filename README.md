@@ -3,7 +3,7 @@ CD ripper with Red Book pre-emphasis detection + 50/15 us de-emphasis, and an
 SACD extraction front-end. License: GPL-2+.
 
 ## Build
-    sudo apt install build-essential pkg-config libcdio-dev libcdio-paranoia-dev libflac-dev libcddb2-dev
+    sudo apt install build-essential pkg-config libcdio-dev libcdio-paranoia-dev libflac-dev libcddb2-dev libgtk-3-dev
     make && make check && sudo make install
 
 ## Other architectures
@@ -40,3 +40,19 @@ illegal in file names become `_`. Without a CDDB match: `<outdir>/NN-Track.ext`.
 freedb.org was shut down in 2020; gnudb.org is the compatible successor.
 Lookups are cached by libcddb in ~/.cddb. The disc's table of contents
 (not your files) is what is sent to the server.
+
+## Graphical interface
+`sonora-rip-gui` (GTK 3) is built automatically when `gtk+-3.0` is found
+(`make GUI=no` to skip it). Start it from the menu ("Sonora Rip") or the shell.
+
+* **Audio CD tab:** the disc is scanned and looked up on CDDB at start-up (and on
+  "Scan disc"). Album artist/album/year/genre and every track's artist and title
+  can be edited; untick tracks you do not want. The "Pre-emphasis" column shows the
+  Red Book flag per track. Choose WAV/FLAC (+FLAC level), de-emphasis mode, dither,
+  secure mode and the output folder, then "Rip selected tracks". Cancel stops
+  cleanly and deletes the unfinished file.
+* **SACD tab:** ISO image / device / `host:2002`, stereo or multichannel area,
+  optional PCM conversion (rate, bits, WAV/FLAC). SACD extraction cannot be
+  cancelled yet; the output of `sacd_extract` itself appears in the terminal.
+* Output layout is the same as the CLI: `<folder>/<Artist - Album>/NN-Title.ext`.
+* Settings are not persisted between runs yet.
