@@ -64,6 +64,25 @@ void cd_disc_free(cd_disc_t *d)
     memset(d, 0, sizeof *d);
 }
 
+char **cdrip_list_drives(void)
+{
+    char **found = cdio_get_devices(DRIVER_DEVICE);
+    size_t n = 0;
+    while (found && found[n]) n++;
+    char **out = calloc(n + 1, sizeof *out);
+    if (out)
+        for (size_t i = 0; i < n; i++) out[i] = strdup(found[i]);
+    if (found) cdio_free_device_list(found);
+    return out;
+}
+
+void cdrip_free_list(char **list)
+{
+    if (!list) return;
+    for (size_t i = 0; list[i]; i++) free(list[i]);
+    free(list);
+}
+
 static int is_cancelled(const cdrip_opts_t *o) { return o->cancelled && o->cancelled(o->user); }
 
 int cdrip_run(const cdrip_opts_t *o)

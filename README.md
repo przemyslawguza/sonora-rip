@@ -46,11 +46,15 @@ Lookups are cached by libcddb in ~/.cddb. The disc's table of contents
 (`make GUI=no` to skip it). Start it from the menu ("Sonora Rip") or the shell.
 
 * **Audio CD tab:** the disc is scanned and looked up on CDDB at start-up (and on
-  "Scan disc"). Album artist/album/year/genre and every track's artist and title
+  "Refresh"). Album artist/album/year/genre and every track's artist and title
   can be edited; untick tracks you do not want. The "Pre-emphasis" column shows the
   Red Book flag per track. Choose WAV/FLAC (+FLAC level), de-emphasis mode, dither,
   secure mode and the output folder, then "Rip selected tracks". Cancel stops
   cleanly and deletes the unfinished file.
+* **Refresh button:** after inserting or swapping a disc (or plugging in a drive)
+  press *Refresh*. It clears the track list, re-detects the optical drives (the
+  "Drive" box is a list you can also type into), re-reads the disc and repeats the
+  CDDB lookup. Drive = "(auto-detect)" uses the first drive libcdio finds.
 * **SACD tab:** ISO image / device / `host:2002`, stereo or multichannel area,
   optional PCM conversion (rate, bits, WAV/FLAC). SACD extraction cannot be
   cancelled yet; the output of `sacd_extract` itself appears in the terminal.

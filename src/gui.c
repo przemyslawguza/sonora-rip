@@ -14,6 +14,8 @@
 #define VERSION "0.1.0"
 #endif
 
+#define AUTO_DEV "(auto-detect)"
+
 enum { COL_RIP, COL_NUM, COL_ARTIST, COL_TITLE, COL_LEN, COL_PRE, COL_AUDIO, NCOLS };
 enum { M_LOG, M_PROGRESS, M_SCAN_DONE, M_RIP_DONE, M_SACD_DONE };
 
@@ -56,6 +58,41 @@ static void parse_server(const char *in, char **host, int *port)
     if (*c) *host = c; else free(c);
 }
 
+/* Device chosen/typed in the drive box; "" = auto-detect. Caller frees. */
+static char *dev_text(void)
+{
+    char *t = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(A.dev));
+    if (!t || !*t || !strcmp(t, AUTO_DEV)) { g_free(t); return strdup(""); }
+    char *r = strdup(t);
+    g_free(t);
+    return r;
+}
+
+/* Rebuild the drive list, keeping whatever the user had selected/typed. */
+static void refresh_drive_list(char **drives)
+{
+    char *keep = dev_text();
+    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(A.dev));
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(A.dev), AUTO_DEV);
+    for (int i = 0; drives && drives[i]; i++)
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(A.dev), drives[i]);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(A.dev), 0);
+    if (*keep)
+        gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(A.dev))), keep);
+    free(keep);
+}
+
+static void clear_disc(void)
+{
+    if (A.have_disc) cd_disc_free(&A.disc);
+    A.have_disc = 0;
+    gtk_list_store_clear(A.store);
+    gtk_entry_set_text(GTK_ENTRY(A.a_artist), "");
+    gtk_entry_set_text(GTK_ENTRY(A.a_album), "");
+    gtk_entry_set_text(GTK_ENTRY(A.a_year), "");
+    gtk_entry_set_text(GTK_ENTRY(A.a_genre), "");
+}
+
 static void set_status(const char *s) { gtk_label_set_text(GTK_LABEL(A.status), s); }
 
 static void log_append(const char *msg)
@@ -85,7 +122,7 @@ static void error_dialog(const char *msg)
 }
 
 /* ---------- thread -> UI messages ---------- */
-typedef struct { char dev[256]; sr_meta_opts_t mo; char *server; int lookup; cd_disc_t disc; int rc; } ScanJob;
+typedef struct { char dev[256]; sr_meta_opts_t mo; char *server; int lookup; cd_disc_t disc; char **drives; int rc; } ScanJob;
 
 static void fill_from_disc(void)
 {
@@ -142,11 +179,13 @@ static gboolean msg_idle(gpointer p)
         break;
     case M_SCAN_DONE: {
         ScanJob *j = m->data;
+        refresh_drive_list(j->drives);
+        cdrip_free_list(j->drives);
         if (j->rc != 0) {
             set_status("No audio disc found (or the drive cannot be read).");
             log_append("Scan failed: no disc or drive not accessible.\n");
         } else {
-            if (A.have_disc) cd_disc_free(&A.disc);
+            clear_disc();
             A.disc = j->disc;
             A.have_disc = 1;
             fill_from_disc();
@@ -198,6 +237,7 @@ static int cb_cancel(void *u) { (void)u; return g_atomic_int_get(&A.cancel); }
 static gpointer scan_thread(gpointer p)
 {
     ScanJob *j = p;
+    j->drives = cdrip_list_drives();
     j->rc = cdrip_scan(j->dev, j->lookup, &j->mo, &j->disc);
     Msg *m = g_new0(Msg, 1);
     m->kind = M_SCAN_DONE; m->data = j;
@@ -209,14 +249,17 @@ static void on_scan(GtkWidget *w, gpointer d)
 {
     (void)w; (void)d;
     ScanJob *j = g_new0(ScanJob, 1);
-    snprintf(j->dev, sizeof j->dev, "%s", gtk_entry_get_text(GTK_ENTRY(A.dev)));
+    char *dv = dev_text();
+    snprintf(j->dev, sizeof j->dev, "%s", dv);
+    free(dv);
+    clear_disc();   /* never show a stale disc after a refresh */
     j->lookup = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(A.lookup_chk));
     j->mo.http = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(A.http_chk));
     char *host; int port;
     parse_server(gtk_entry_get_text(GTK_ENTRY(A.server)), &host, &port);
     j->server = host; j->mo.server = host; j->mo.port = port;
     set_busy(TRUE, FALSE);
-    set_status(j->lookup ? "Reading disc and querying CDDB..." : "Reading disc...");
+    set_status(j->lookup ? "Refreshing: detecting drives, reading disc, querying CDDB..." : "Refreshing: detecting drives and reading disc...");
     g_thread_unref(g_thread_new("scan", scan_thread, j));
 }
 
@@ -246,7 +289,7 @@ static gpointer rip_thread(gpointer p)
 static void on_rip(GtkWidget *w, gpointer d)
 {
     (void)w; (void)d;
-    if (!A.have_disc) { error_dialog("Scan a disc first."); return; }
+    if (!A.have_disc) { error_dialog("No disc loaded - insert one and press Refresh."); return; }
     char *outdir = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(A.outdir));
     if (!outdir) { error_dialog("Choose an output folder."); return; }
 
@@ -285,7 +328,7 @@ static void on_rip(GtkWidget *w, gpointer d)
         return;
     }
 
-    j->device = sdup(gtk_entry_get_text(GTK_ENTRY(A.dev)));
+    j->device = dev_text();
     j->outdir = strdup(outdir); g_free(outdir);
     j->o.device = j->device;
     j->o.outdir = j->outdir;
@@ -431,10 +474,13 @@ static GtkWidget *build_cd_tab(void)
 
     GtkWidget *g = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(g), 4); gtk_grid_set_column_spacing(GTK_GRID(g), 6);
-    A.dev = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(A.dev), "auto-detect (e.g. /dev/sr0)");
+    A.dev = gtk_combo_box_text_new_with_entry();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(A.dev), AUTO_DEV);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(A.dev), 0);
     gtk_widget_set_hexpand(A.dev, TRUE);
-    A.scan_btn = gtk_button_new_with_label("Scan disc");
+    A.scan_btn = gtk_button_new_with_mnemonic("_Refresh");
+    gtk_widget_set_tooltip_text(A.scan_btn,
+        "Re-read the CD drive: detect drives and the inserted disc, then look it up again");
     g_signal_connect(A.scan_btn, "clicked", G_CALLBACK(on_scan), NULL);
     A.lookup_chk = gtk_check_button_new_with_label("CDDB lookup");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(A.lookup_chk), TRUE);
@@ -442,7 +488,7 @@ static GtkWidget *build_cd_tab(void)
     A.server = gtk_entry_new();
     gtk_entry_set_placeholder_text(GTK_ENTRY(A.server), "gnudb.gnudb.org[:port]");
     gtk_widget_set_hexpand(A.server, TRUE);
-    gtk_grid_attach(GTK_GRID(g), label("Device:"), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), label("Drive:"), 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(g), A.dev, 1, 0, 3, 1);
     gtk_grid_attach(GTK_GRID(g), A.scan_btn, 4, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(g), A.lookup_chk, 0, 1, 1, 1);
@@ -614,7 +660,7 @@ int main(int argc, char **argv)
     gtk_box_pack_start(GTK_BOX(pr), A.cancel_btn, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(root), pr, FALSE, FALSE, 0);
 
-    A.status = label("Insert an audio CD and press \"Scan disc\".");
+    A.status = label("Insert an audio CD and press \"Refresh\".");
     gtk_box_pack_start(GTK_BOX(root), A.status, FALSE, FALSE, 0);
 
     A.logview = gtk_text_view_new();
