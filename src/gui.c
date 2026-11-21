@@ -16,7 +16,7 @@
 
 #define AUTO_DEV "(auto-detect)"
 
-enum { COL_RIP, COL_NUM, COL_ARTIST, COL_TITLE, COL_LEN, COL_PRE, COL_AUDIO, NCOLS };
+enum { COL_RIP, COL_NUM, COL_ARTIST, COL_TITLE, COL_LEN, COL_PRE, COL_AUDIO, COL_DEEMPH, NCOLS };
 enum { M_LOG, M_PROGRESS, M_SCAN_DONE, M_RIP_DONE, M_SACD_DONE };
 
 typedef struct {
@@ -32,7 +32,7 @@ typedef struct {
     GtkWidget *dev, *scan_btn, *lookup_chk, *http_chk, *server;
     GtkWidget *a_artist, *a_album, *a_year, *a_genre;
     GtkListStore *store;
-    GtkWidget *fmt, *level, *deemph, *dither, *paranoia, *rip_btn;
+    GtkWidget *auto_chk, *fmt, *level, *dither, *paranoia, *rip_btn;
     /* SACD tab */
     GtkWidget *s_input, *s_mc, *s_pcm, *s_rate, *s_bits, *s_fmt, *s_btn;
     /* common */
@@ -44,6 +44,8 @@ typedef struct {
     guint pulse_id;
 } App;
 static App A;
+
+static void on_deemph_set(GtkWidget *w, gpointer data);
 
 /* ---------- helpers ---------- */
 static char *sdup(const char *s) { return strdup(s ? s : ""); }
@@ -128,6 +130,7 @@ static void fill_from_disc(void)
 {
     const cd_disc_t *d = &A.disc;
     char buf[32];
+    gboolean auto_on = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(A.auto_chk));
     gtk_list_store_clear(A.store);
     for (int i = 0; i < d->ntracks; i++) {
         const cd_track_info_t *t = &d->tracks[i];
@@ -147,7 +150,8 @@ static void fill_from_disc(void)
             COL_RIP, t->is_audio ? TRUE : FALSE, COL_NUM, t->number,
             COL_ARTIST, tart, COL_TITLE, title, COL_LEN, len,
             COL_PRE, t->is_audio ? (t->preemph ? "yes" : "no") : "-",
-            COL_AUDIO, t->is_audio ? TRUE : FALSE, -1);
+            COL_AUDIO, t->is_audio ? TRUE : FALSE,
+            COL_DEEMPH, (auto_on && t->is_audio && t->preemph) ? TRUE : FALSE, -1);
     }
     gtk_entry_set_text(GTK_ENTRY(A.a_artist), d->meta.valid && d->meta.artist ? d->meta.artist : "");
     gtk_entry_set_text(GTK_ENTRY(A.a_album),  d->meta.valid && d->meta.album  ? d->meta.album  : "");
@@ -270,6 +274,7 @@ typedef struct {
     cdrip_opts_t o;
     sr_meta_t meta;
     unsigned char *mask;
+    signed char ovr[SR_MAX_TRACKS];   /* de-emphasis per track number: -1/0/1 */
     char *device, *outdir, *server;
 } RipJob;
 
@@ -296,6 +301,7 @@ static void on_rip(GtkWidget *w, gpointer d)
     RipJob *j = calloc(1, sizeof *j);
     int n = A.disc.ntracks, any = 0;
     j->mask = calloc(n, 1);
+    memset(j->ovr, -1, sizeof j->ovr);
     j->meta.valid = 1;
     j->meta.discid = A.disc.meta.valid ? A.disc.meta.discid : 0;
     j->meta.artist = sdup_or_null(gtk_entry_get_text(GTK_ENTRY(A.a_artist)));
@@ -306,16 +312,26 @@ static void on_rip(GtkWidget *w, gpointer d)
     j->meta.title = calloc(n, sizeof(char *));
     j->meta.track_artist = calloc(n, sizeof(char *));
 
+    gboolean auto_on = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(A.auto_chk));
     GtkTreeModel *model = GTK_TREE_MODEL(A.store);
     GtkTreeIter it;
     int i = 0;
     for (gboolean ok = gtk_tree_model_get_iter_first(model, &it); ok && i < n;
          ok = gtk_tree_model_iter_next(model, &it), i++) {
-        gboolean rip, audio;
+        gboolean rip, audio, deemph;
+        gint num;
         gchar *ta, *ti;
-        gtk_tree_model_get(model, &it, COL_RIP, &rip, COL_AUDIO, &audio,
-                           COL_ARTIST, &ta, COL_TITLE, &ti, -1);
+        gtk_tree_model_get(model, &it, COL_RIP, &rip, COL_AUDIO, &audio, COL_NUM, &num,
+                           COL_DEEMPH, &deemph, COL_ARTIST, &ta, COL_TITLE, &ti, -1);
         j->mask[i] = (rip && audio) ? 1 : 0;
+        /* Automatic mode: a track that is ticked exactly as the disc flag says simply
+         * follows the flag (not "manual"); a differing tick is a manual override.
+         * Automatic off: only ticked tracks are de-emphasised (manual). */
+        if (audio && num > 0 && num < SR_MAX_TRACKS) {
+            gboolean flag = i < A.disc.ntracks && A.disc.tracks[i].preemph;
+            if (auto_on) j->ovr[num] = (deemph == flag) ? -1 : (deemph ? 1 : 0);
+            else         j->ovr[num] = deemph ? 1 : -1;
+        }
         any |= j->mask[i];
         if (audio) j->meta.title[i] = sdup_or_null(ti);
         if (ta && *ta && (!j->meta.artist || strcmp(ta, j->meta.artist)))
@@ -332,7 +348,8 @@ static void on_rip(GtkWidget *w, gpointer d)
     j->outdir = strdup(outdir); g_free(outdir);
     j->o.device = j->device;
     j->o.outdir = j->outdir;
-    j->o.deemph = (deemph_mode_t)gtk_combo_box_get_active(GTK_COMBO_BOX(A.deemph)); /* auto,on,off */
+    j->o.deemph = auto_on ? DEEMPH_AUTO : DEEMPH_OFF;
+    j->o.preemph_override = j->ovr;
     j->o.dither = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(A.dither));
     j->o.paranoia = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(A.paranoia));
     j->o.format = gtk_combo_box_get_active(GTK_COMBO_BOX(A.fmt)) == 1 ? FMT_FLAC : FMT_WAV;
@@ -423,6 +440,24 @@ static void on_toggled(GtkCellRendererToggle *r, gchar *path, gpointer d)
     if (audio) gtk_list_store_set(A.store, &it, COL_RIP, !on, -1);
 }
 
+static void on_deemph_toggled(GtkCellRendererToggle *r, gchar *path, gpointer d)
+{
+    (void)r; (void)d;
+    GtkTreeIter it;
+    if (!gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(A.store), &it, path)) return;
+    gboolean on, audio;
+    gtk_tree_model_get(GTK_TREE_MODEL(A.store), &it, COL_DEEMPH, &on, COL_AUDIO, &audio, -1);
+    if (audio) gtk_list_store_set(A.store, &it, COL_DEEMPH, !on, -1);
+}
+
+/* Automatic on: tick the tracks the disc flags. Automatic off: clear all ticks
+ * (nothing is applied unless the user ticks tracks by hand). */
+static void on_auto_toggled(GtkWidget *w, gpointer d)
+{
+    (void)d;
+    on_deemph_set(w, GINT_TO_POINTER(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w)) ? 2 : 0));
+}
+
 static void on_edited(GtkCellRendererText *r, gchar *path, gchar *text, gpointer col)
 {
     (void)r;
@@ -441,6 +476,25 @@ static void on_select_all(GtkWidget *w, gpointer data)
         gboolean audio;
         gtk_tree_model_get(m, &it, COL_AUDIO, &audio, -1);
         if (audio) gtk_list_store_set(A.store, &it, COL_RIP, val, -1);
+    }
+}
+
+/* data: 1 = all tracks, 0 = none, 2 = as flagged on the disc */
+static void on_deemph_set(GtkWidget *w, gpointer data)
+{
+    (void)w;
+    int mode = GPOINTER_TO_INT(data);
+    GtkTreeModel *m = GTK_TREE_MODEL(A.store);
+    GtkTreeIter it;
+    int i = 0;
+    for (gboolean ok = gtk_tree_model_get_iter_first(m, &it); ok;
+         ok = gtk_tree_model_iter_next(m, &it), i++) {
+        gboolean audio;
+        gtk_tree_model_get(m, &it, COL_AUDIO, &audio, -1);
+        if (!audio) continue;
+        gboolean v = mode == 1 ? TRUE : mode == 0 ? FALSE
+                   : (A.have_disc && i < A.disc.ntracks && A.disc.tracks[i].preemph);
+        gtk_list_store_set(A.store, &it, COL_DEEMPH, v, -1);
     }
 }
 
@@ -511,7 +565,7 @@ static GtkWidget *build_cd_tab(void)
     gtk_box_pack_start(GTK_BOX(box), g, FALSE, FALSE, 0);
 
     A.store = gtk_list_store_new(NCOLS, G_TYPE_BOOLEAN, G_TYPE_INT, G_TYPE_STRING,
-                                 G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
+                                 G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
     GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(A.store));
     GtkCellRenderer *r;
     r = gtk_cell_renderer_toggle_new();
@@ -537,7 +591,12 @@ static GtkWidget *build_cd_tab(void)
         gtk_tree_view_column_new_with_attributes("Length", r, "text", COL_LEN, NULL));
     r = gtk_cell_renderer_text_new();
     gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
-        gtk_tree_view_column_new_with_attributes("Pre-emphasis", r, "text", COL_PRE, NULL));
+        gtk_tree_view_column_new_with_attributes("Disc flag", r, "text", COL_PRE, NULL));
+    r = gtk_cell_renderer_toggle_new();
+    g_signal_connect(r, "toggled", G_CALLBACK(on_deemph_toggled), NULL);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
+        gtk_tree_view_column_new_with_attributes("De-emphasis", r, "active", COL_DEEMPH,
+                                                 "activatable", COL_AUDIO, NULL));
     GtkWidget *sw = gtk_scrolled_window_new(NULL, NULL);
     gtk_container_add(GTK_CONTAINER(sw), tree);
     gtk_widget_set_vexpand(sw, TRUE);
@@ -550,16 +609,32 @@ static GtkWidget *build_cd_tab(void)
     g_signal_connect(b0, "clicked", G_CALLBACK(on_select_all), GINT_TO_POINTER(0));
     gtk_box_pack_start(GTK_BOX(sel), b1, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(sel), b0, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(sel), gtk_separator_new(GTK_ORIENTATION_VERTICAL), FALSE, FALSE, 6);
+    A.auto_chk = gtk_check_button_new_with_label("Automatic: de-emphasise tracks the disc flags");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(A.auto_chk), TRUE);
+    gtk_widget_set_tooltip_text(A.auto_chk,
+        "On: tracks with the Red Book pre-emphasis flag are ticked and de-emphasised "
+        "automatically (you can still untick any track). Off: the flag is ignored and only "
+        "the tracks you tick are de-emphasised.");
+    g_signal_connect(A.auto_chk, "toggled", G_CALLBACK(on_auto_toggled), NULL);
+    gtk_box_pack_start(GTK_BOX(sel), A.auto_chk, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(sel), label("Set:"), FALSE, FALSE, 0);
+    const char *dnames[] = { "all tracks", "no tracks", "as flagged" };   /* quick presets */
+    const int   dvals[]  = { 1, 0, 2 };
+    for (int k = 0; k < 3; k++) {
+        GtkWidget *b = gtk_button_new_with_label(dnames[k]);
+        gtk_widget_set_tooltip_text(b, "Set the De-emphasis column. Tick tracks by hand when the disc "
+                                       "is pre-emphasised but not flagged per track.");
+        g_signal_connect(b, "clicked", G_CALLBACK(on_deemph_set), GINT_TO_POINTER(dvals[k]));
+        gtk_box_pack_start(GTK_BOX(sel), b, FALSE, FALSE, 0);
+    }
     gtk_box_pack_start(GTK_BOX(box), sel, FALSE, FALSE, 0);
 
     static const char *const fmts[] = { "WAV", "FLAC", NULL };
-    static const char *const de[] = { "Pre-emphasis: auto (flagged tracks)", "Pre-emphasis: always de-emphasise",
-                                      "Pre-emphasis: never", NULL };
     GtkWidget *o = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     A.fmt = combo(fmts, 1);
     A.level = gtk_spin_button_new_with_range(0, 8, 1);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(A.level), 5);
-    A.deemph = combo(de, 0);
     A.dither = gtk_check_button_new_with_label("dither");
     A.paranoia = gtk_check_button_new_with_label("secure mode (paranoia)");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(A.paranoia), TRUE);
@@ -569,7 +644,6 @@ static GtkWidget *build_cd_tab(void)
     gtk_box_pack_start(GTK_BOX(o), A.fmt, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(o), label("FLAC level:"), FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(o), A.level, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(o), A.deemph, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(o), A.dither, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(o), A.paranoia, FALSE, FALSE, 0);
     gtk_box_pack_end(GTK_BOX(o), A.rip_btn, FALSE, FALSE, 0);

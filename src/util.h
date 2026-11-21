@@ -12,4 +12,8 @@ int  sr_album_dirname(char *dst, size_t n, const char *artist, const char *album
 void sr_track_basename(char *dst, size_t n, int track, const char *title);
 /* mkdir -p for a path (mode 0755). Returns 0 on success. */
 int  sr_mkdir_p(const char *path);
+
+/* Parse a track list like "1,3,5-7" or "all" and store `value` at mask[track]
+ * for every listed track (track numbers 1..maxtrack-1). 0 = ok, -1 = syntax error. */
+int  sr_parse_track_list(const char *list, signed char *mask, int maxtrack, signed char value);
 #endif

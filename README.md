@@ -60,3 +60,28 @@ Lookups are cached by libcddb in ~/.cddb. The disc's table of contents
   cancelled yet; the output of `sacd_extract` itself appears in the terminal.
 * Output layout is the same as the CLI: `<folder>/<Artist - Album>/NN-Title.ext`.
 * Settings are not persisted between runs yet.
+
+## Manual pre-emphasis
+Some discs are pre-emphasised as a whole (or mastered with pre-emphasis but never
+flagged) so the per-track flag is wrong or missing. De-emphasis can therefore be set by hand:
+
+* **GUI:** each track has a *De-emphasis* checkbox, pre-ticked from the *Disc flag*
+  column. Tick/untick tracks freely, or use *all tracks* / *no tracks* / *as flagged*.
+  What is ticked is what gets applied.
+* **CLI:** `--deemph-tracks 1,3,5-7` (or `all`) forces it on, `--no-deemph-tracks LIST`
+  forces it off; manual choices beat both the disc flag and `--deemph auto|on|off`.
+  Example, whole disc is pre-emphasised but unflagged: `sonora-rip cd --deemph-tracks all`.
+* FLAC tags record the outcome: `SONORA_PREEMPHASIS_FLAG=0;DEEMPHASIS_APPLIED=1;MANUAL=1`.
+* How to tell: pre-emphasised audio sounds bright/harsh when played without
+  de-emphasis, and old (1980s-90s) digital recordings are the usual suspects.
+
+## Automatic mode (default) and how to disable it
+* **Automatic is on by default.** A track whose Red Book pre-emphasis flag is set is
+  de-emphasised without any action from you.
+* **Disable it for everything:** GUI - untick *Automatic: de-emphasise tracks the disc
+  flags* (all ticks are cleared; only tracks you tick are processed). CLI - `--deemph off`.
+* **Disable it for single tracks:** GUI - untick the track's *De-emphasis* box.
+  CLI - `--no-deemph-tracks 3,5`.
+* **Enable it by hand** where the disc does not flag it: tick the box / `--deemph-tracks`.
+* Log and tags say `(manual)` / `MANUAL=1` only when you changed the outcome the
+  flag would have given.

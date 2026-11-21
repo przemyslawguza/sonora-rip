@@ -27,6 +27,13 @@ int main(void)
     if (sr_album_dirname(b, sizeof b, NULL, "Album") || strcmp(b, "Album")) { printf("FAIL dir2: %s\n", b); fails++; }
     if (sr_album_dirname(b, sizeof b, "", NULL) != -1) { puts("FAIL dir3"); fails++; }
     if (sr_mkdir_p("/tmp/sr_test/a/b/c") || sr_mkdir_p("/tmp/sr_test/a/b/c")) { puts("FAIL mkdir_p"); fails++; }
+    signed char m[100];
+    memset(m, -1, sizeof m);
+    if (sr_parse_track_list("1,3,5-7", m, 100, 1) || m[1] != 1 || m[2] != -1 || m[3] != 1 || m[5] != 1 || m[7] != 1 || m[8] != -1) { puts("FAIL tracklist"); fails++; }
+    if (sr_parse_track_list("all", m, 100, 0) || m[2] != 0 || m[99] != 0 || m[0] != -1) { puts("FAIL tracklist all"); fails++; }
+    const char *bad[] = { "", "0", "x", "3-", "5-3", "1,,2", "1,", "100", "1;2", NULL };
+    for (int i = 0; bad[i]; i++)
+        if (sr_parse_track_list(bad[i], m, 100, 1) == 0) { printf("FAIL: accepted bad list '%s'\n", bad[i]); fails++; }
     puts(fails ? "RESULT: FAIL" : "RESULT: PASS");
     return fails;
 }

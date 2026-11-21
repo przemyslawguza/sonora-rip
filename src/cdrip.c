@@ -147,12 +147,18 @@ int cdrip_run(const cdrip_opts_t *o)
         if (o->track_mask && !o->track_mask[t - first]) continue;
         if (cdio_get_track_format(cdio, t) != TRACK_FORMAT_AUDIO) continue;
         int pre = track_has_preemph(cdio, t);
-        int apply = (o->deemph == DEEMPH_ON) ||
-                    (o->deemph == DEEMPH_AUTO && pre);
-        sr_log(o, "Track %02d: pre-emphasis flag=%s -> de-emphasis %s\n",
-               t, pre ? "SET" : "clear", apply ? "APPLIED" : "not applied");
+        int apply, manual = 0;
+        if (o->preemph_override && t < SR_MAX_TRACKS && o->preemph_override[t] >= 0) {
+            apply = o->preemph_override[t];       /* user decision wins over the flag */
+            manual = 1;
+        } else {
+            apply = (o->deemph == DEEMPH_ON) || (o->deemph == DEEMPH_AUTO && pre);
+        }
+        sr_log(o, "Track %02d: pre-emphasis flag=%s -> de-emphasis %s%s\n",
+               t, pre ? "SET" : "clear", apply ? "APPLIED" : "not applied",
+               manual ? " (manual)" : "");
 
-        char path[4800], fname[400], pe[96], tn[40], tt[40], dt[40];
+        char path[4800], fname[400], pe[128], tn[40], tt[40], dt[40];
         char ar[1024], al[1024], ti[1024], gn[300], aa[1024], di[40];
         const char *tags[16];
         int nt = 0;
@@ -160,8 +166,8 @@ int cdrip_run(const cdrip_opts_t *o)
         const char *title = NULL, *tartist = NULL;
 
         snprintf(tn, sizeof tn, "TRACKNUMBER=%d", t);
-        snprintf(pe, sizeof pe, "SONORA_PREEMPHASIS_FLAG=%s;DEEMPHASIS_APPLIED=%s",
-                 pre ? "1" : "0", apply ? "1" : "0");
+        snprintf(pe, sizeof pe, "SONORA_PREEMPHASIS_FLAG=%s;DEEMPHASIS_APPLIED=%s%s",
+                 pre ? "1" : "0", apply ? "1" : "0", manual ? ";MANUAL=1" : "");
         tags[nt++] = tn; tags[nt++] = "ENCODER=sonora-rip"; tags[nt++] = pe;
         if (mp && mp->valid && idx >= 0 && idx < mp->ntracks) {
             title   = mp->title[idx];

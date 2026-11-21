@@ -4,6 +4,8 @@
 #include "meta.h"
 #include <stdint.h>
 
+#define SR_MAX_TRACKS 100   /* track numbers 1..99 */
+
 typedef enum { DEEMPH_AUTO, DEEMPH_ON, DEEMPH_OFF } deemph_mode_t;
 
 /* Optional hooks, used by the GUI. They are called from the ripping thread. */
@@ -23,6 +25,9 @@ typedef struct {
     int           use_cddb;    /* 1 = look up artist/album/titles */
     sr_meta_opts_t cddb;
     /* --- library / GUI use (all optional) --- */
+    /* Manual de-emphasis per track, indexed by TRACK NUMBER (size SR_MAX_TRACKS):
+     * -1 = decide by `deemph` mode / flag, 0 = never, 1 = always.  NULL = none. */
+    const signed char   *preemph_override;
     const sr_meta_t     *meta_in;    /* use this metadata instead of a CDDB lookup */
     const unsigned char *track_mask; /* [ntracks], 1 = rip; indexed by position; NULL = first..last */
     sr_log_fn      log;              /* NULL = stderr */

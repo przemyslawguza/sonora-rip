@@ -1,5 +1,6 @@
 #include "util.h"
 #include <errno.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -60,4 +61,31 @@ int sr_mkdir_p(const char *path)
         *p = '/';
     }
     return (mkdir(tmp, 0755) && errno != EEXIST) ? -1 : 0;
+}
+
+int sr_parse_track_list(const char *list, signed char *mask, int maxtrack, signed char value)
+{
+    if (!list || !*list) return -1;
+    if (!strcmp(list, "all")) {
+        for (int t = 1; t < maxtrack; t++) mask[t] = value;
+        return 0;
+    }
+    const char *p = list;
+    while (*p) {
+        char *end;
+        long a = strtol(p, &end, 10);
+        if (end == p || a < 1 || a >= maxtrack) return -1;
+        long b = a;
+        p = end;
+        if (*p == '-') {
+            p++;
+            b = strtol(p, &end, 10);
+            if (end == p || b < a || b >= maxtrack) return -1;
+            p = end;
+        }
+        for (long t = a; t <= b; t++) mask[t] = value;
+        if (*p == ',') { p++; if (!*p) return -1; }
+        else if (*p) return -1;
+    }
+    return 0;
 }
