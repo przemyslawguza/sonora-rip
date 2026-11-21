@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "sink.h"
 #include "wav.h"
 #include <FLAC/metadata.h>

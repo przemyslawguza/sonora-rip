@@ -1,3 +1,16 @@
+sonora-rip (1.0.0) trixie; urgency=medium
+
+  * First stable release.
+  * Audio CD ripping with libcdio-paranoia; WAV and FLAC (libFLAC) output.
+  * Red Book pre-emphasis detection with 50/15 us de-emphasis: automatic for
+    flagged tracks, manual per-track control (GUI checkboxes,
+    --deemph-tracks / --no-deemph-tracks) and a switch to disable automatic mode.
+  * CDDB (gnudb) metadata: tags, "Artist - Album" folder, NN-Title file names.
+  * SACD extraction front-end (sacd_extract + ffmpeg).
+  * GTK 3 interface with Refresh button, editable tags, progress and cancel.
+
+ -- Sonora Rip Maintainers <sonora-rip@example.org>  Sat, 21 Nov 2026 12:00:00 +0000
+
 sonora-rip (0.1.0) trixie; urgency=medium
 
   * Initial release: CD ripping with pre-emphasis detection/de-emphasis,

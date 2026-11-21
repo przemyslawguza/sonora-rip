@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #ifndef SONORA_SACD_H
 #define SONORA_SACD_H
 typedef struct {

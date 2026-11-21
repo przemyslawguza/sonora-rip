@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /* Audio output sink: WAV or FLAC (libFLAC). */
 #ifndef SONORA_SINK_H
 #define SONORA_SINK_H

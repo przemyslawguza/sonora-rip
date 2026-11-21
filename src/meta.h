@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /* CD metadata lookup through CDDB (libcddb) - default server gnudb.org */
 #ifndef SONORA_META_H
 #define SONORA_META_H

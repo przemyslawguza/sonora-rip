@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /* sonora-rip-gui - GTK3 front end for the sonora-rip core.
  * Long operations (disc scan, CD rip, SACD extraction) run in worker threads;
  * results reach the UI through g_idle_add(). */
@@ -11,7 +12,7 @@
 #include "meta.h"
 
 #ifndef VERSION
-#define VERSION "0.1.0"
+#define VERSION "1.0.0"
 #endif
 
 #define AUTO_DEV "(auto-detect)"

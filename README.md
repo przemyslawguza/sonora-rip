@@ -1,4 +1,4 @@
-# sonora-rip 0.1.0
+# sonora-rip 1.0.0
 CD ripper with Red Book pre-emphasis detection + 50/15 us de-emphasis, and an
 SACD extraction front-end. License: GPL-2+.
 
@@ -12,7 +12,7 @@ Native on arm64/amd64. Cross: `make CC=aarch64-linux-gnu-gcc PKG_CONFIG=aarch64-
 
 ## Debian 13 package
     sudo apt install devscripts debhelper
-    dpkg-buildpackage -us -uc -b      # produces ../sonora-rip_0.1.0_<arch>.deb
+    dpkg-buildpackage -us -uc -b      # produces ../sonora-rip_1.0.0_<arch>.deb
 
 ## SACD
 Requires `sacd_extract` (sacd-ripper) in PATH. A normal DVD drive generally

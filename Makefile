@@ -1,5 +1,5 @@
 # Portable build: native or cross (e.g. make CC=aarch64-linux-gnu-gcc PKG_CONFIG=aarch64-linux-gnu-pkg-config)
-VERSION  ?= 0.1.0
+VERSION  ?= 1.0.0
 PREFIX   ?= /usr
 DESTDIR  ?=
 CC       ?= cc
@@ -46,6 +46,9 @@ ifneq ($(HAVE_GTK),)
 	install -D -m 0644 data/sonora-rip.desktop $(DESTDIR)$(PREFIX)/share/applications/sonora-rip.desktop
 endif
 	install -D -m 0644 docs/sonora-rip.1 $(DESTDIR)$(PREFIX)/share/man/man1/sonora-rip.1
+# Source tarball of the committed tree: make dist  ->  sonora-rip-$(VERSION).tar.gz
+dist:
+	git archive --format=tar.gz --prefix=sonora-rip-$(VERSION)/ -o sonora-rip-$(VERSION).tar.gz HEAD
 clean:
 	rm -f $(OBJ) src/gui.o sonora-rip sonora-rip-gui tests/test_deemph tests/test_util
-.PHONY: all check install clean
+.PHONY: all check install clean dist

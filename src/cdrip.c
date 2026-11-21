@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /* Audio CD ripping with pre-emphasis detection (libcdio + libcdio-paranoia). */
 #include "cdrip.h"
 #include "deemph.h"

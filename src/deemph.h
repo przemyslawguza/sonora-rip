@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /* sonora-rip - CD de-emphasis filter (Red Book 50/15 us) */
 #ifndef SONORA_DEEMPH_H
 #define SONORA_DEEMPH_H

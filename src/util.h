@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #ifndef SONORA_UTIL_H
 #define SONORA_UTIL_H
 #include <stddef.h>

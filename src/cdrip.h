@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #ifndef SONORA_CDRIP_H
 #define SONORA_CDRIP_H
 #include "sink.h"

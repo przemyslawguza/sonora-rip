@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "cdrip.h"
 #include "sacd.h"
 #include "sink.h"
@@ -8,7 +9,7 @@
 #include <string.h>
 
 #ifndef VERSION
-#define VERSION "0.1.0"
+#define VERSION "1.0.0"
 #endif
 
 static void usage(void)

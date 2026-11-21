@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /* SACD extraction backend.
  *
  * Reading/decrypting the SACD layer is delegated to sacd-ripper's

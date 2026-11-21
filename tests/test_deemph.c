@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "../src/deemph.h"
 #include <math.h>
 #include <stdio.h>
